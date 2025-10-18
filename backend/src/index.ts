@@ -1,26 +1,42 @@
-import { fromHono } from "chanfana";
-import { Hono } from "hono";
-import { TaskCreate } from "./endpoints/taskCreate";
-import { TaskDelete } from "./endpoints/taskDelete";
-import { TaskFetch } from "./endpoints/taskFetch";
-import { TaskList } from "./endpoints/taskList";
+import { Hono } from 'hono'
+import { cors } from 'hono/cors' // CORSをインポート
 
-// Start a Hono app
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono()
 
-// Setup OpenAPI registry
-const openapi = fromHono(app, {
-	docs_url: "/",
-});
+// どのドメインからでもAPIを叩けるようにCORSミドルウェアを適用
+app.use('/api/*', cors())
 
-// Register OpenAPI endpoints
-openapi.get("/api/tasks", TaskList);
-openapi.post("/api/tasks", TaskCreate);
-openapi.get("/api/tasks/:taskSlug", TaskFetch);
-openapi.delete("/api/tasks/:taskSlug", TaskDelete);
+// --- 元からあったAPIルートはそのまま ---
+app.get('/api/hello', (c) => {
+	return c.json({
+	ok: true,
+	message: 'Hello',
+	})
+})
 
-// You may also register routes for non OpenAPI directly on Hono
-// app.get('/test', (c) => c.text('Hono!'))
+app.get('/api/posts/:id', (c) => {
+	const page = c.req.query("page")
+	const id = c.req.param("id")
+	return c.text(`You want to see ${page} of ${id}`)
+})
 
-// Export the Hono app
-export default app;
+// --- テキスト処理ルートをAPI仕様に変更 ---
+// パスを /api/process に変更
+app.post('/api/process', async (c) => {
+	try {
+	// フロントエンドから送られてくるJSONを受け取る
+	const { inputText } = await c.req.json<{ inputText: string }>()
+
+	// テキストを加工する
+	const processedText = ` "${inputText}"と入力されました。`
+
+	// 結果をHTMLではなく、JSONで返す！
+	return c.json({ result: processedText })
+
+	} catch (e) {
+	return c.json({ error: 'リクエストの処理に失敗しました' }, 500)
+	}
+})
+
+export default app
+
