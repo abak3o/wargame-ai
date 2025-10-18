@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Operation Page</title>
+</head>
+<body>
+
+  <h1>URL Slug:</h1>
+  <p id="slug-display" style="font-size: 2em; font-weight: bold; color: #f48120;"></p>
+  <a href="./operation.html">operation</a>
+
+  <script>
+    // 現在のページのURLパスを取得 (例: /operaton/what-is-a-slug)
+    const path = window.location.pathname;
+
+    // パスを'/'で分割し、最後の部分（slug）を取得
+    const parts = path.split('/');
+    const slug = parts[parts.length - 1];
+
+    // slugを表示するpタグにテキストを設定
+    document.getElementById('slug-display').textContent = slug;
+  </script>
+
+</body>
+</html>
