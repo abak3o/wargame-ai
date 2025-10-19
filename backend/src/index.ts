@@ -1,42 +1,57 @@
 import { Hono } from 'hono'
-import { cors } from 'hono/cors' // CORSをインポート
+import { cors } from 'hono/cors'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
-const app = new Hono()
+// Honoの型定義で環境変数を認識させる
+type Bindings = {
+  GEMINI_API_KEY: string
+}
+
+const app = new Hono<{ Bindings: Bindings }>()
 
 // どのドメインからでもAPIを叩けるようにCORSミドルウェアを適用
 app.use('/api/*', cors())
 
-// --- 元からあったAPIルートはそのまま ---
 app.get('/api/hello', (c) => {
-	return c.json({
-	ok: true,
-	message: 'Hello',
-	})
+  return c.json({
+    ok: true,
+    message: 'Hello',
+  })
 })
 
 app.get('/api/posts/:id', (c) => {
-	const page = c.req.query("page")
-	const id = c.req.param("id")
-	return c.text(`You want to see ${page} of ${id}`)
+  const page = c.req.query("page")
+  const id = c.req.param("id")
+  return c.text(`You want to see ${page} of ${id}`)
 })
 
-// --- テキスト処理ルートをAPI仕様に変更 ---
-// パスを /api/process に変更
 app.post('/api/process', async (c) => {
-	try {
-	// フロントエンドから送られてくるJSONを受け取る
-	const { inputText } = await c.req.json<{ inputText: string }>()
+  try {
+    const { inputText } = await c.req.json<{ inputText: string }>()
 
-	// テキストを加工する
-	const processedText = ` "${inputText}"と入力されました。`
+    if (!inputText) {
+      return c.json({ error: 'inputTextがありません' }, 400)
+    }
 
-	// 結果をHTMLではなく、JSONで返す！
-	return c.json({ result: processedText })
+    const apiKey = c.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error('GEMINI_API_KEY is not set.');
+      return c.json({ error: 'APIキーが設定されていません' }, 500)
+    }
 
-	} catch (e) {
-	return c.json({ error: 'リクエストの処理に失敗しました' }, 500)
-	}
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const result = await model.generateContent(inputText);
+    const response = await result.response;
+    const processedText = response.text();
+
+    return c.json({ result: processedText })
+
+  } catch (e) {
+    console.error(e);
+    return c.json({ error: 'リクエストの処理中にエラーが発生しました' }, 500)
+  }
 })
 
 export default app
-
